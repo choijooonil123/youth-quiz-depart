@@ -77,98 +77,105 @@
     (카카오톡 인앱 브라우저에서는 음성이 지원되지 않을 수 있습니다.)
   </p>
 
-  <script>
-    let allData = [];
-    let data = [];
-    let quizActive = false;
-    let currentIndex = 0;
-    let repeatList = JSON.parse(localStorage.getItem("repeatList") || "[]");
-    let acquiredList = JSON.parse(localStorage.getItem("acquiredList") || "[]");
-    let currentQA = null;
-    let selectedCategory = "";
+<script>
+  let allData = [];
+  let data = [];
+  let quizActive = false;
+  let currentIndex = 0;
+  let repeatList = JSON.parse(localStorage.getItem("repeatList") || "[]");
+  let acquiredList = JSON.parse(localStorage.getItem("acquiredList") || "[]");
+  let currentQA = null;
+  let selectedCategory = "";
 
-    // JSON 로드 및 과목 셀렉트박스 초기화
-    fetch("youth_quiz_data.json")
-      .then(response => response.json())
-      .then(json => {
-        allData = json.filter(item => item.subject); // subject가 없는 항목 제외
-        const categories = [...new Set(allData.map(item => item.subject))].sort();
-        const select = document.getElementById("categorySelect");
-        categories.forEach(cat => {
-          const option = document.createElement("option");
-          option.value = cat;
-          option.text = cat;
-          select.appendChild(option);
-        });
-      })
-      .catch(err => {
-        alert("문제 데이터를 불러오지 못했습니다.\n웹서버에서 열었는지 확인하세요.");
-        console.error(err);
+  fetch("youth_quiz_data.json")
+    .then(response => response.json())
+    .then(json => {
+      allData = json.filter(item => item.subject); // subject 없는 항목 제거
+      const categories = [...new Set(allData.map(item => item.subject))].sort();
+      const select = document.getElementById("categorySelect");
+      categories.forEach(cat => {
+        const option = document.createElement("option");
+        option.value = cat;
+        option.text = cat;
+        select.appendChild(option);
       });
+    })
+    .catch(err => {
+      alert("문제 데이터를 불러오지 못했습니다.\n웹서버에서 열었는지 확인하세요.");
+      console.error(err);
+    });
 
-    function selectCategory() {
-      selectedCategory = document.getElementById("categorySelect").value;
-      data = allData.filter(q => q.subject === selectedCategory);
-      currentIndex = 0;
-      updateStats();
+  function selectCategory() {
+    selectedCategory = document.getElementById("categorySelect").value;
+    data = allData.filter(q => q.subject === selectedCategory);
+    currentIndex = 0;
+    updateStats();
+  }
+
+  function speak(text, callback) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'ko-KR';
+    if (callback) utterance.onend = callback;
+    speechSynthesis.speak(utterance);
+  }
+
+  function updateStats() {
+    const total = data.length;
+    const repeatCount = repeatList.filter(q => q.subject === selectedCategory).length;
+    const acquiredCount = acquiredList.filter(q => q.subject === selectedCategory).length;
+    document.getElementById("stats").innerText =
+      `총계: ${total} | 반복: ${repeatCount} | 습득: ${acquiredCount}`;
+  }
+
+  function startQuiz() {
+    if (!selectedCategory) {
+      alert("과목을 선택해주세요.");
+      return;
+    }
+    quizActive = true;
+    currentIndex = 0;
+    document.getElementById("startBtn").style.display = "none";
+    document.getElementById("stopBtn").style.display = "inline-block";
+    loadNextQA();
+  }
+
+  function stopQuiz() {
+    quizActive = false;
+    document.getElementById("question").innerText = "퀴즈가 종료되었습니다.";
+    document.getElementById("answer").style.display = "none";
+    document.getElementById("notice").innerText = "";
+    document.getElementById("startBtn").style.display = "inline-block";
+    document.getElementById("stopBtn").style.display = "none";
+    document.getElementById("buttons").style.display = "none";
+  }
+
+  function loadNextQA() {
+    if (!quizActive) return;
+
+    document.getElementById("answer").style.display = "none";
+    document.getElementById("answer").innerText = "";
+    document.getElementById("notice").innerText = "";
+    document.getElementById("buttons").style.display = "none";
+
+    // 현재 과목에서 습득된 문제는 건너뜀
+    while (currentIndex < data.length && isAcquired(data[currentIndex])) {
+      currentIndex++;
     }
 
-    function speak(text, callback) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'ko-KR';
-      if (callback) utterance.onend = callback;
-      speechSynthesis.speak(utterance);
-    }
-
-    function updateStats() {
-      document.getElementById("stats").innerText = `총계: ${data.length} | 반복: ${repeatList.length} | 습득: ${acquiredList.length}`;
-    }
-
-    function startQuiz() {
-      if (!selectedCategory) {
-        alert("과목을 선택해주세요.");
-        return;
-      }
-      quizActive = true;
-      currentIndex = 0;
-      document.getElementById("startBtn").style.display = "none";
-      document.getElementById("stopBtn").style.display = "inline-block";
-      loadNextQA();
-    }
-
-    function stopQuiz() {
-      quizActive = false;
-      document.getElementById("question").innerText = "퀴즈가 종료되었습니다.";
-      document.getElementById("answer").style.display = "none";
-      document.getElementById("notice").innerText = "";
-      document.getElementById("startBtn").style.display = "inline-block";
-      document.getElementById("stopBtn").style.display = "none";
-      document.getElementById("buttons").style.display = "none";
-    }
-
-    function loadNextQA() {
-      if (!quizActive) return;
-
-      document.getElementById("answer").style.display = "none";
-      document.getElementById("answer").innerText = "";
-      document.getElementById("notice").innerText = "";
-      document.getElementById("buttons").style.display = "none";
-
-      while (currentIndex < data.length && isAcquired(data[currentIndex])) {
-        currentIndex++;
-      }
-
-      if (currentIndex < data.length) {
-        currentQA = data[currentIndex];
-        const questionText = "문제입니다: " + currentQA.question;
-        document.getElementById("question").innerText = questionText;
-        speak(questionText, () => {
-          document.getElementById("notice").innerText = "20초 후에 정답이 나옵니다.";
-          setTimeout(() => showAnswer(currentQA), 20000);
-        });
-      } else if (repeatList.length > 0) {
-        data = repeatList;
-        repeatList = [];
+    if (currentIndex < data.length) {
+      currentQA = data[currentIndex];
+      const questionText = "문제입니다: " + currentQA.question;
+      document.getElementById("question").innerText = questionText;
+      speak(questionText, () => {
+        document.getElementById("notice").innerText = "20초 후에 정답이 나옵니다.";
+        setTimeout(() => showAnswer(currentQA), 20000);
+      });
+    } else {
+      // 현재 과목의 반복 문제만 추림
+      const repeats = repeatList.filter(q => q.subject === selectedCategory);
+      if (repeats.length > 0) {
+        data = repeats;
+        repeatList = repeatList.filter(q => q.subject !== selectedCategory);
         currentIndex = 0;
         updateStats();
         loadNextQA();
@@ -176,44 +183,45 @@
         stopQuiz();
       }
     }
+  }
 
-    function showAnswer(qa) {
-      const answerText = "정답입니다: " + qa.answer;
-      document.getElementById("answer").innerText = answerText;
-      document.getElementById("answer").style.display = "block";
-      document.getElementById("notice").innerText = "";
-      document.getElementById("buttons").style.display = "block";
-      speak(answerText);
-    }
+  function showAnswer(qa) {
+    const answerText = "정답입니다: " + qa.answer;
+    document.getElementById("answer").innerText = answerText;
+    document.getElementById("answer").style.display = "block";
+    document.getElementById("notice").innerText = "";
+    document.getElementById("buttons").style.display = "block";
+    speak(answerText);
+  }
 
-    function repeatQuestion() {
-      if (currentQA) {
-        repeatList.push(currentQA);
-        currentIndex++;
-        saveProgress();
-        updateStats();
-        loadNextQA();
-      }
+  function repeatQuestion() {
+    if (currentQA) {
+      repeatList.push(currentQA);
+      currentIndex++;
+      saveProgress();
+      updateStats();
+      loadNextQA();
     }
+  }
 
-    function markAcquired() {
-      if (currentQA) {
-        acquiredList.push(currentQA);
-        currentIndex++;
-        saveProgress();
-        updateStats();
-        loadNextQA();
-      }
+  function markAcquired() {
+    if (currentQA) {
+      acquiredList.push(currentQA);
+      currentIndex++;
+      saveProgress();
+      updateStats();
+      loadNextQA();
     }
+  }
 
-    function isAcquired(qa) {
-      return acquiredList.some(item => item.question === qa.question);
-    }
+  function isAcquired(qa) {
+    return acquiredList.some(item =>
+      item.question === qa.question && item.subject === qa.subject
+    );
+  }
 
-    function saveProgress() {
-      localStorage.setItem("repeatList", JSON.stringify(repeatList));
-      localStorage.setItem("acquiredList", JSON.stringify(acquiredList));
-    }
-  </script>
-</body>
-</html>
+  function saveProgress() {
+    localStorage.setItem("repeatList", JSON.stringify(repeatList));
+    localStorage.setItem("acquiredList", JSON.stringify(acquiredList));
+  }
+</script>
