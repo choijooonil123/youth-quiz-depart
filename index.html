@@ -87,11 +87,12 @@
     let currentQA = null;
     let selectedCategory = "";
 
+    // JSON 로드 및 과목 셀렉트박스 초기화
     fetch("youth_quiz_data.json")
       .then(response => response.json())
       .then(json => {
-        allData = json;
-        const categories = [...new Set(allData.map(item => item.subject))];
+        allData = json.filter(item => item.subject); // subject가 없는 항목 제외
+        const categories = [...new Set(allData.map(item => item.subject))].sort();
         const select = document.getElementById("categorySelect");
         categories.forEach(cat => {
           const option = document.createElement("option");
@@ -99,11 +100,16 @@
           option.text = cat;
           select.appendChild(option);
         });
+      })
+      .catch(err => {
+        alert("문제 데이터를 불러오지 못했습니다.\n웹서버에서 열었는지 확인하세요.");
+        console.error(err);
       });
 
     function selectCategory() {
       selectedCategory = document.getElementById("categorySelect").value;
       data = allData.filter(q => q.subject === selectedCategory);
+      currentIndex = 0;
       updateStats();
     }
 
