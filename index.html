@@ -90,7 +90,7 @@
   fetch("youth_quiz_data.json")
     .then(response => response.json())
     .then(json => {
-      allData = json.filter(item => item.subject); // subject 없는 항목 제거
+      allData = json.filter(item => item.subject);
       const categories = [...new Set(allData.map(item => item.subject))].sort();
       const select = document.getElementById("categorySelect");
       categories.forEach(cat => {
@@ -157,8 +157,10 @@
     document.getElementById("notice").innerText = "";
     document.getElementById("buttons").style.display = "none";
 
-    // 현재 과목에서 습득된 문제는 건너뜀
-    while (currentIndex < data.length && isAcquired(data[currentIndex])) {
+    while (
+      currentIndex < data.length &&
+      (isAcquired(data[currentIndex]) || isRepeated(data[currentIndex]))
+    ) {
       currentIndex++;
     }
 
@@ -171,12 +173,11 @@
         setTimeout(() => showAnswer(currentQA), 20000);
       });
     } else {
-      // 현재 과목의 반복 문제만 추림
-      const repeats = repeatList.filter(q => q.subject === selectedCategory);
-      if (repeats.length > 0) {
-        data = repeats;
-        repeatList = repeatList.filter(q => q.subject !== selectedCategory);
+      const subjectRepeats = repeatList.filter(q => q.subject === selectedCategory);
+      if (subjectRepeats.length > 0) {
+        data = allData.filter(q => q.subject === selectedCategory);
         currentIndex = 0;
+        repeatList = repeatList.filter(q => q.subject !== selectedCategory);
         updateStats();
         loadNextQA();
       } else {
@@ -195,27 +196,33 @@
   }
 
   function repeatQuestion() {
-    if (currentQA) {
+    if (currentQA && !isRepeated(currentQA)) {
       repeatList.push(currentQA);
-      currentIndex++;
-      saveProgress();
-      updateStats();
-      loadNextQA();
     }
+    currentIndex++;
+    saveProgress();
+    updateStats();
+    loadNextQA();
   }
 
   function markAcquired() {
-    if (currentQA) {
+    if (currentQA && !isAcquired(currentQA)) {
       acquiredList.push(currentQA);
-      currentIndex++;
-      saveProgress();
-      updateStats();
-      loadNextQA();
     }
+    currentIndex++;
+    saveProgress();
+    updateStats();
+    loadNextQA();
   }
 
   function isAcquired(qa) {
     return acquiredList.some(item =>
+      item.question === qa.question && item.subject === qa.subject
+    );
+  }
+
+  function isRepeated(qa) {
+    return repeatList.some(item =>
       item.question === qa.question && item.subject === qa.subject
     );
   }
