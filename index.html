@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>청소년지도사 면접 퀴즈</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2em;
+      background-color: #f0f0f0;
+      text-align: center;
+    }
+    h1 {
+      font-size: 2em;
+      margin-bottom: 0.2em;
+    }
+    h2 {
+      font-size: 0.9em;
+      margin-top: 0;
+      color: gray;
+    }
+    #question {
+      font-size: 1.5em;
+      margin: 1em 0;
+      color: red;
+    }
+    #answer, #notice {
+      font-size: 1.5em;
+      margin: 1em 0;
+    }
+    #answer {
+      color: blue;
+    }
+    #notice {
+      color: gray;
+    }
+    button {
+      font-size: 1em;
+      padding: 1em;
+      margin: 0.5em;
+    }
+    #tip {
+      color: gray;
+      font-size: 0.9em;
+      margin-top: 2em;
+    }
+    #stats {
+      margin-top: 1em;
+      font-size: 1em;
+      color: #333;
+    }
+    #categorySelect {
+      margin: 1em;
+      font-size: 1em;
+    }
+  </style>
+</head>
+<body>
+  <h1>청소년지도사 면접 퀴즈</h1>
+  <h2>(제작:김천대학교 상담심리학과)</h2>
+  <select id="categorySelect" onchange="selectCategory()">
+    <option value="">-- 과목을 선택하세요 --</option>
+  </select>
+  <div id="stats">총계: 0 | 반복: 0 | 습득: 0</div>
+  <div id="question">아래 시작 버튼을 눌러 퀴즈를 시작하세요.</div>
+  <div id="notice"></div>
+  <div id="answer" style="display:none;"></div>
+  <div id="buttons" style="display:none;">
+    <button onclick="repeatQuestion()">반복</button>
+    <button onclick="markAcquired()">습득</button>
+  </div>
+  <button id="startBtn" onclick="startQuiz()">시작</button>
+  <button id="stopBtn" onclick="stopQuiz()" style="display:none;">종료</button>
+  <p id="tip">
+    ※ 음성이 나오지 않으면 <strong>오른쪽 위 점 세 개(⋮)</strong>를 눌러<br>
+    <strong>"Chrome으로 열기"</strong>를 선택하세요.<br>
+    (카카오톡 인앱 브라우저에서는 음성이 지원되지 않을 수 있습니다.)
+  </p>
+
+  <script>
+    let allData = [];
+    let data = [];
+    let quizActive = false;
+    let currentIndex = 0;
+    let repeatList = JSON.parse(localStorage.getItem("repeatList") || "[]");
+    let acquiredList = JSON.parse(localStorage.getItem("acquiredList") || "[]");
+    let currentQA = null;
+    let selectedCategory = "";
+
+    fetch("youth_quiz_data.json")
+      .then(response => response.json())
+      .then(json => {
+        allData = json;
+        const categories = [...new Set(allData.map(item => item.subject))];
+        const select = document.getElementById("categorySelect");
+        categories.forEach(cat => {
+          const option = document.createElement("option");
+          option.value = cat;
+          option.text = cat;
+          select.appendChild(option);
+        });
+      });
+
+    function selectCategory() {
+      selectedCategory = document.getElementById("categorySelect").value;
+      data = allData.filter(q => q.subject === selectedCategory);
+      updateStats();
+    }
+
+    function speak(text, callback) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'ko-KR';
+      if (callback) utterance.onend = callback;
+      speechSynthesis.speak(utterance);
+    }
+
+    function updateStats() {
+      document.getElementById("stats").innerText = `총계: ${data.length} | 반복: ${repeatList.length} | 습득: ${acquiredList.length}`;
+    }
+
+    function startQuiz() {
+      if (!selectedCategory) {
+        alert("과목을 선택해주세요.");
+        return;
+      }
+      quizActive = true;
+      currentIndex = 0;
+      document.getElementById("startBtn").style.display = "none";
+      document.getElementById("stopBtn").style.display = "inline-block";
+      loadNextQA();
+    }
+
+    function stopQuiz() {
+      quizActive = false;
+      document.getElementById("question").innerText = "퀴즈가 종료되었습니다.";
+      document.getElementById("answer").style.display = "none";
+      document.getElementById("notice").innerText = "";
+      document.getElementById("startBtn").style.display = "inline-block";
+      document.getElementById("stopBtn").style.display = "none";
+      document.getElementById("buttons").style.display = "none";
+    }
+
+    function loadNextQA() {
+      if (!quizActive) return;
+
+      document.getElementById("answer").style.display = "none";
+      document.getElementById("answer").innerText = "";
+      document.getElementById("notice").innerText = "";
+      document.getElementById("buttons").style.display = "none";
+
+      while (currentIndex < data.length && isAcquired(data[currentIndex])) {
+        currentIndex++;
+      }
+
+      if (currentIndex < data.length) {
+        currentQA = data[currentIndex];
+        const questionText = "문제입니다: " + currentQA.question;
+        document.getElementById("question").innerText = questionText;
+        speak(questionText, () => {
+          document.getElementById("notice").innerText = "20초 후에 정답이 나옵니다.";
+          setTimeout(() => showAnswer(currentQA), 20000);
+        });
+      } else if (repeatList.length > 0) {
+        data = repeatList;
+        repeatList = [];
+        currentIndex = 0;
+        updateStats();
+        loadNextQA();
+      } else {
+        stopQuiz();
+      }
+    }
+
+    function showAnswer(qa) {
+      const answerText = "정답입니다: " + qa.answer;
+      document.getElementById("answer").innerText = answerText;
+      document.getElementById("answer").style.display = "block";
+      document.getElementById("notice").innerText = "";
+      document.getElementById("buttons").style.display = "block";
+      speak(answerText);
+    }
+
+    function repeatQuestion() {
+      if (currentQA) {
+        repeatList.push(currentQA);
+        currentIndex++;
+        saveProgress();
+        updateStats();
+        loadNextQA();
+      }
+    }
+
+    function markAcquired() {
+      if (currentQA) {
+        acquiredList.push(currentQA);
+        currentIndex++;
+        saveProgress();
+        updateStats();
+        loadNextQA();
+      }
+    }
+
+    function isAcquired(qa) {
+      return acquiredList.some(item => item.question === qa.question);
+    }
+
+    function saveProgress() {
+      localStorage.setItem("repeatList", JSON.stringify(repeatList));
+      localStorage.setItem("acquiredList", JSON.stringify(acquiredList));
+    }
+  </script>
+</body>
+</html>
