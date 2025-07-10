@@ -70,17 +70,28 @@
   </p>
 
   <script>
+      // 음성 선택용 글로벌 변수
+    let selectedVoice = null;
     let allData = [], data = [], currentQA = null;
     let repeatList = JSON.parse(localStorage.getItem("repeatList") || "[]");
     let acquiredList = JSON.parse(localStorage.getItem("acquiredList") || "[]");
     let currentIndex = 0, quizActive = false;
-    let selectedCategory = "", selectedVoice = null;
-    let autoIndexMap = {}, isAutoMode = false;
-
-    // 음성 선택 로직
+    let selectedCategory = "";
+    let autoIndexMap = {};  // 자동 모드 포인터
+    let isAutoMode = false;
+    
+    // 음성 목록 로드 및 드롭다운 추가
     window.speechSynthesis.onvoiceschanged = function () {
       const voices = speechSynthesis.getVoices();
-      const voiceSelect = document.getElementById("voiceSelect");
+    
+      const oldSelect = document.getElementById("voiceSelect");
+      if (oldSelect) oldSelect.remove();
+    
+      const voiceSelect = document.createElement("select");
+      voiceSelect.id = "voiceSelect";
+      voiceSelect.style.margin = "1em";
+      voiceSelect.style.fontSize = "1em";
+    
       voices
         .filter(v => v.lang.startsWith("ko"))
         .forEach(voice => {
@@ -89,15 +100,25 @@
           option.text = voice.name;
           voiceSelect.appendChild(option);
         });
+    
       voiceSelect.onchange = () => {
-        selectedVoice = voices.find(v => v.name === voiceSelect.value);
+        const voiceName = voiceSelect.value;
+        selectedVoice = voices.find(v => v.name === voiceName);
       };
+    
+      const voiceContainer = document.getElementById("voiceContainer") || document.createElement("div");
+      voiceContainer.id = "voiceContainer";
+      voiceContainer.style.margin = "1em";
+      voiceContainer.innerHTML = "";
+      voiceContainer.appendChild(voiceSelect);
+      document.body.insertBefore(voiceContainer, document.getElementById("categorySelect"));
+    
       if (!selectedVoice && voiceSelect.options.length > 0) {
         voiceSelect.selectedIndex = 0;
         selectedVoice = voices.find(v => v.name === voiceSelect.value);
       }
     };
-
+    
     function speak(text, callback) {
       speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
@@ -106,55 +127,84 @@
       if (callback) utterance.onend = callback;
       speechSynthesis.speak(utterance);
     }
-
+    
     function selectCategory() {
       selectedCategory = document.getElementById("categorySelect").value;
       data = allData.filter(q => q.subject === selectedCategory);
       currentIndex = 0;
       updateStats();
-      document.getElementById("manualBtn").style.display = "inline-block";
-      document.getElementById("autoBtn").style.display = "inline-block";
-      document.getElementById("stopBtn").style.display = "none";
     }
-
+    
+    function isAcquired(qa) {
+      return acquiredList.some(item => item.question === qa.question && item.subject === qa.subject);
+    }
+    
+    function isRepeated(qa) {
+      return repeatList.some(item => item.question === qa.question && item.subject === qa.subject);
+    }
+    
+    function saveProgress() {
+      localStorage.setItem("repeatList", JSON.stringify(repeatList));
+      localStorage.setItem("acquiredList", JSON.stringify(acquiredList));
+    }
+    
     function updateStats() {
       const total = data.length;
-      const r = repeatList.filter(q => q.subject === selectedCategory).length;
-      const a = acquiredList.filter(q => q.subject === selectedCategory).length;
-      document.getElementById("stats").innerText = `총계: ${total} | 반복: ${r} | 습득: ${a}`;
+      const repeatCount = repeatList.filter(q => q.subject === selectedCategory).length;
+      const acquiredCount = acquiredList.filter(q => q.subject === selectedCategory).length;
+      document.getElementById("stats").innerText =
+        `총계: ${total} | 반복: ${repeatCount} | 습득: ${acquiredCount}`;
     }
-
-    function isAcquired(q) {
-      return acquiredList.some(x => x.question === q.question && x.subject === q.subject);
+    
+    function showAnswer(qa) {
+      const answerText = "정답입니다: " + qa.answer;
+      document.getElementById("answer").innerText = answerText;
+      document.getElementById("answer").style.display = "block";
+      document.getElementById("notice").innerText = "";
+      if (!isAutoMode) document.getElementById("buttons").style.display = "block";
+      speak(answerText);
     }
-    function isRepeated(q) {
-      return repeatList.some(x => x.question === q.question && x.subject === q.subject);
-    }
-
-    function startManualMode() {
-      if (!selectedCategory) return alert("과목을 선택해주세요.");
-      quizActive = true;
-      isAutoMode = false;
-      currentIndex = 0;
-      document.getElementById("manualBtn").style.display = "none";
-      document.getElementById("autoBtn").style.display = "none";
-      document.getElementById("stopBtn").style.display = "inline-block";
+    
+    function repeatQuestion() {
+      if (currentQA && !isRepeated(currentQA)) {
+        repeatList.push(currentQA);
+      }
+      currentIndex++;
+      saveProgress();
+      updateStats();
       loadNextManualQA();
     }
-
+    
+    function markAcquired() {
+      if (currentQA && !isAcquired(currentQA)) {
+        acquiredList.push(currentQA);
+      }
+      currentIndex++;
+      saveProgress();
+      updateStats();
+      loadNextManualQA();
+    }
+    
     function loadNextManualQA() {
       if (!quizActive) return;
+    
       document.getElementById("answer").style.display = "none";
+      document.getElementById("answer").innerText = "";
       document.getElementById("notice").innerText = "";
       document.getElementById("buttons").style.display = "none";
-      while (currentIndex < data.length && (isAcquired(data[currentIndex]) || isRepeated(data[currentIndex]))) {
+    
+      while (
+        currentIndex < data.length &&
+        (isAcquired(data[currentIndex]) || isRepeated(data[currentIndex]))
+      ) {
         currentIndex++;
       }
+    
       if (currentIndex < data.length) {
         currentQA = data[currentIndex];
-        const qText = "문제입니다: " + currentQA.question;
-        document.getElementById("question").innerText = qText;
-        speak(qText, () => {
+        const questionText = "문제입니다: " + currentQA.question;
+        document.getElementById("question").innerText = questionText;
+        speak(questionText, () => {
           document.getElementById("notice").innerText = "20초 후에 정답이 나옵니다.";
           setTimeout(() => showAnswer(currentQA), 20000);
         });
@@ -162,18 +212,46 @@
         stopQuiz();
       }
     }
-
-    function startAutoMode() {
-      if (!selectedCategory) return alert("과목을 선택해주세요.");
+    
+    function startManualMode() {
+      if (!selectedCategory) {
+        alert("과목을 선택해주세요.");
+        return;
+      }
+      isAutoMode = false;
       quizActive = true;
+      currentIndex = 0;
+      document.getElementById("manualBtn").style.display = "none";
+      document.getElementById("autoBtn").style.display = "none";
+      document.getElementById("stopBtn").style.display = "inline-block";
+      loadNextManualQA();
+    }
+    
+    function startAutoMode() {
+      if (!selectedCategory) {
+        alert("과목을 선택해주세요.");
+        return;
+      }
       isAutoMode = true;
-      if (!autoIndexMap[selectedCategory]) autoIndexMap[selectedCategory] = 0;
+      quizActive = true;
+      autoIndexMap[selectedCategory] = autoIndexMap[selectedCategory] || 0;
       document.getElementById("manualBtn").style.display = "none";
       document.getElementById("autoBtn").style.display = "none";
       document.getElementById("stopBtn").style.display = "inline-block";
       loadNextAutoQA();
     }
-
+    
+    function stopQuiz() {
+      quizActive = false;
+      document.getElementById("question").innerText = "퀴즈가 종료되었습니다.";
+      document.getElementById("answer").style.display = "none";
+      document.getElementById("notice").innerText = "";
+      document.getElementById("buttons").style.display = "none";
+      document.getElementById("manualBtn").style.display = "inline-block";
+      document.getElementById("autoBtn").style.display = "inline-block";
+      document.getElementById("stopBtn").style.display = "none";
+    }
+    
     function loadNextAutoQA() {
       if (!quizActive) return;
       const all = allData.filter(q => q.subject === selectedCategory);
@@ -186,91 +264,33 @@
       let pointer = autoIndexMap[selectedCategory] % len;
       currentQA = autoList[pointer];
       autoIndexMap[selectedCategory] = (pointer + 1) % len;
-
+    
       document.getElementById("answer").style.display = "none";
       document.getElementById("answer").innerText = "";
       document.getElementById("notice").innerText = "";
       document.getElementById("buttons").style.display = "none";
-
+    
       const questionText = "문제입니다: " + currentQA.question;
       document.getElementById("question").innerText = questionText;
-
+    
       const questionUtterance = new SpeechSynthesisUtterance(questionText);
       questionUtterance.lang = 'ko-KR';
       if (selectedVoice) questionUtterance.voice = selectedVoice;
-
+    
       questionUtterance.onend = () => {
-        document.getElementById("notice").innerText = "5초 후에 정답이 나옵니다.";
-        setTimeout(() => {
-          showAnswer(currentQA);
-          const answerUtterance = new SpeechSynthesisUtterance("정답입니다: " + currentQA.answer);
-          answerUtterance.lang = 'ko-KR';
-          if (selectedVoice) answerUtterance.voice = selectedVoice;
-          answerUtterance.onend = () => {
-            setTimeout(() => loadNextAutoQA(), 5000);
-          };
-          speechSynthesis.speak(answerUtterance);
-        }, 5000);
+        showAnswer(currentQA);
+        const answerUtterance = new SpeechSynthesisUtterance("정답입니다: " + currentQA.answer);
+        answerUtterance.lang = 'ko-KR';
+        if (selectedVoice) answerUtterance.voice = selectedVoice;
+        answerUtterance.onend = () => {
+          loadNextAutoQA();
+        };
+        speechSynthesis.speak(answerUtterance);
       };
-
+    
       speechSynthesis.cancel();
       speechSynthesis.speak(questionUtterance);
     }
-
-    function showAnswer(q) {
-      const aText = "정답입니다: " + q.answer;
-      document.getElementById("answer").innerText = aText;
-      document.getElementById("answer").style.display = "block";
-      document.getElementById("notice").innerText = "";
-      if (!isAutoMode) document.getElementById("buttons").style.display = "block";
-      speak(aText);
-    }
-
-    function repeatQuestion() {
-      if (currentQA && !isRepeated(currentQA)) repeatList.push(currentQA);
-      saveProgress();
-      updateStats();
-      if (!isAutoMode) { currentIndex++; loadNextManualQA(); }
-    }
-
-    function markAcquired() {
-      if (currentQA && !isAcquired(currentQA)) acquiredList.push(currentQA);
-      saveProgress();
-      updateStats();
-      if (!isAutoMode) { currentIndex++; loadNextManualQA(); }
-    }
-
-    function saveProgress() {
-      localStorage.setItem("repeatList", JSON.stringify(repeatList));
-      localStorage.setItem("acquiredList", JSON.stringify(acquiredList));
-    }
-
-    function stopQuiz() {
-      quizActive = false;
-      isAutoMode = false;
-      document.getElementById("question").innerText = "퀴즈가 종료되었습니다.";
-      document.getElementById("answer").style.display = "none";
-      document.getElementById("notice").innerText = "";
-      document.getElementById("buttons").style.display = "none";
-      document.getElementById("manualBtn").style.display = "inline-block";
-      document.getElementById("autoBtn").style.display = "inline-block";
-      document.getElementById("stopBtn").style.display = "none";
-    }
-
-    // 데이터 불러오기
-    fetch("youth_quiz_data.json")
-      .then(res => res.json())
-      .then(json => {
-        allData = json.filter(q => q.subject);
-        const cats = [...new Set(allData.map(q => q.subject))];
-        const select = document.getElementById("categorySelect");
-        cats.forEach(cat => {
-          const opt = document.createElement("option");
-          opt.value = cat;
-          opt.text = cat;
-          select.appendChild(opt);
-        });
-      });
   </script>
 </body>
 </html>
