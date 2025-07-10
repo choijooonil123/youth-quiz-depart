@@ -204,9 +204,13 @@ function loadNextQA() {
 
 function repeatQuestion() {
   if (currentQA && !isRepeated(currentQA)) {
-    repeatList.push(currentQA);
-    saveProgress(); // 여기서 바로 저장
+    repeatList.push({ question: currentQA.question, subject: currentQA.subject });
+    saveProgress();
   }
+  currentIndex++;
+  updateStats();
+  loadNextQA();
+}
   currentIndex++;
   updateStats();
   loadNextQA();
