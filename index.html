@@ -192,6 +192,7 @@ function loadNextQA() {
   speak(questionText, () => {
     if (!quizActive) return;
     setTimeout(() => {
+      document.getElementById("notice").innerText = "";
       const answerText = "정답입니다: " + qa.answer;
       document.getElementById("answer").innerText = answerText;
       document.getElementById("answer").style.display = "block";
@@ -202,9 +203,11 @@ function loadNextQA() {
 }
 
 function repeatQuestion() {
-  if (currentQA && !isRepeated(currentQA)) repeatList.push(currentQA);
+  if (currentQA && !isRepeated(currentQA)) {
+    repeatList.push(currentQA);
+    saveProgress(); // 여기서 바로 저장
+  }
   currentIndex++;
-  saveProgress();
   updateStats();
   loadNextQA();
 }
