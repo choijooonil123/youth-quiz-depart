@@ -60,13 +60,13 @@ button {
 <h2>(제작:김천대학교 상담심리학과)</h2>
 
 <!-- 과목 선택 -->
-<label for="categorySelect">과목 :</label>
 <select id="categorySelect" onchange="selectCategory()">
   <option value="">-- 과목을 선택하세요 --</option>
 </select>
 <!-- 음성 선택 -->
-<label for="voiceSelect">음성 :</label>
-<select id="voiceSelect"></select>
+<select id="voiceSelect">
+  <option value="">-- 음성을 선택하세요 --</option>
+</select>
 
 <div id="stats">총계: 0 | 반복: 0 | 습득: 0</div>
 
@@ -103,15 +103,19 @@ let selectedVoice = null;
 window.speechSynthesis.onvoiceschanged = () => {
   voices = speechSynthesis.getVoices().filter(v => v.lang.startsWith("ko"));
   const voiceSelect = document.getElementById("voiceSelect");
-  voiceSelect.innerHTML = "";
+  voiceSelect.innerHTML = "<option value=''>-- 음성을 선택하세요 --</option>";
   ["상냥한 음성", "똑똑한 음성"].forEach((label, i) => {
-    const option = document.createElement("option");
-    option.value = i;
-    option.text = label;
-    voiceSelect.appendChild(option);
+    if (voices[i]) {
+      const option = document.createElement("option");
+      option.value = i;
+      option.text = label;
+      voiceSelect.appendChild(option);
+    }
   });
-  voiceSelect.onchange = () => selectedVoice = voices[voiceSelect.value];
-  selectedVoice = voices[0];
+  voiceSelect.onchange = () => {
+    const idx = voiceSelect.value;
+    selectedVoice = voices[idx] || null;
+  };
 };
 
 fetch("youth_quiz_data.json")
@@ -128,7 +132,7 @@ fetch("youth_quiz_data.json")
     });
   })
   .catch(err => {
-    alert("문제 데이터를 불러오지 못했습니다.\n웹서버에서 열었는지 확인하세요.");
+    alert("문제 데이터를 불러오지 못했습니다. 웹서버에서 열었는지 확인하세요.");
     console.error(err);
   });
 
