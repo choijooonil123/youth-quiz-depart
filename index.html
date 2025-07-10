@@ -28,12 +28,8 @@
       font-size: 1.5em;
       margin: 1em 0;
     }
-    #answer {
-      color: blue;
-    }
-    #notice {
-      color: gray;
-    }
+    #answer { color: blue; }
+    #notice { color: gray; }
     button {
       font-size: 1em;
       padding: 1em;
@@ -49,7 +45,7 @@
       font-size: 1em;
       color: #333;
     }
-    #categorySelect {
+    #categorySelect, #voiceSelect {
       margin: 1em;
       font-size: 1em;
     }
@@ -58,9 +54,15 @@
 <body>
   <h1>청소년지도사 면접 퀴즈 2.0</h1>
   <h2>(제작:김천대학교 상담심리학과)</h2>
+
+  <!-- 음성 선택 -->
+  <select id="voiceSelect"></select>
+
+  <!-- 과목 선택 -->
   <select id="categorySelect" onchange="selectCategory()">
     <option value="">-- 과목을 선택하세요 --</option>
   </select>
+
   <div id="stats">총계: 0 | 반복: 0 | 습득: 0</div>
   <div id="question">아래 시작 버튼을 눌러 퀴즈를 시작하세요.</div>
   <div id="notice"></div>
@@ -85,33 +87,53 @@
   </p>
 
   <script>
-    let allData = [];
-    let data = [];
-    let quizActive = false;
-    let currentIndex = 0;
+    let allData = [], data = [], currentQA = null;
     let repeatList = JSON.parse(localStorage.getItem("repeatList") || "[]");
     let acquiredList = JSON.parse(localStorage.getItem("acquiredList") || "[]");
-    let currentQA = null;
-    let selectedCategory = "";
-    let autoIndexMap = {}; // 과목별 자동 인덱스
-    let isAutoMode = false;
+    let currentIndex = 0, quizActive = false;
+    let selectedCategory = "", selectedVoice = null;
+    let autoIndexMap = {}, isAutoMode = false;
+
+    // 음성 목록 로드 및 선택
+    window.speechSynthesis.onvoiceschanged = function () {
+      const voices = speechSynthesis.getVoices();
+      const select = document.getElementById("voiceSelect");
+      voices.filter(v => v.lang.startsWith("ko")).forEach(v => {
+        const opt = document.createElement("option");
+        opt.value = v.name;
+        opt.text = v.name;
+        select.appendChild(opt);
+      });
+      select.onchange = () => {
+        selectedVoice = voices.find(v => v.name === select.value);
+      };
+      if (select.options.length > 0) {
+        select.selectedIndex = 0;
+        selectedVoice = voices.find(v => v.name === select.value);
+      }
+    };
+
+    function speak(text, callback) {
+      speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'ko-KR';
+      if (selectedVoice) utter.voice = selectedVoice;
+      if (callback) utter.onend = callback;
+      speechSynthesis.speak(utter);
+    }
 
     fetch("youth_quiz_data.json")
-      .then(response => response.json())
+      .then(res => res.json())
       .then(json => {
-        allData = json.filter(item => item.subject);
-        const categories = [...new Set(allData.map(item => item.subject))].sort();
+        allData = json.filter(q => q.subject);
         const select = document.getElementById("categorySelect");
-        categories.forEach(cat => {
-          const option = document.createElement("option");
-          option.value = cat;
-          option.text = cat;
-          select.appendChild(option);
+        const cats = [...new Set(allData.map(q => q.subject))];
+        cats.forEach(cat => {
+          const opt = document.createElement("option");
+          opt.value = cat;
+          opt.text = cat;
+          select.appendChild(opt);
         });
-      })
-      .catch(err => {
-        alert("문제 데이터를 불러오지 못했습니다.\n웹서버에서 열었는지 확인하세요.");
-        console.error(err);
       });
 
     function selectCategory() {
@@ -124,26 +146,22 @@
       document.getElementById("stopBtn").style.display = "none";
     }
 
-    function speak(text, callback) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'ko-KR';
-      if (callback) utterance.onend = callback;
-      speechSynthesis.speak(utterance);
-    }
-
     function updateStats() {
       const total = data.length;
-      const repeatCount = repeatList.filter(q => q.subject === selectedCategory).length;
-      const acquiredCount = acquiredList.filter(q => q.subject === selectedCategory).length;
-      document.getElementById("stats").innerText =
-        `총계: ${total} | 반복: ${repeatCount} | 습득: ${acquiredCount}`;
+      const r = repeatList.filter(q => q.subject === selectedCategory).length;
+      const a = acquiredList.filter(q => q.subject === selectedCategory).length;
+      document.getElementById("stats").innerText = `총계: ${total} | 반복: ${r} | 습득: ${a}`;
+    }
+
+    function isAcquired(q) {
+      return acquiredList.some(x => x.question === q.question && x.subject === q.subject);
+    }
+    function isRepeated(q) {
+      return repeatList.some(x => x.question === q.question && x.subject === q.subject);
     }
 
     function startManualMode() {
-      if (!selectedCategory) {
-        alert("과목을 선택해주세요.");
-        return;
-      }
+      if (!selectedCategory) return alert("과목을 선택해주세요.");
       quizActive = true;
       isAutoMode = false;
       currentIndex = 0;
@@ -156,22 +174,16 @@
     function loadNextManualQA() {
       if (!quizActive) return;
       document.getElementById("answer").style.display = "none";
-      document.getElementById("answer").innerText = "";
       document.getElementById("notice").innerText = "";
       document.getElementById("buttons").style.display = "none";
-
-      while (
-        currentIndex < data.length &&
-        (isAcquired(data[currentIndex]) || isRepeated(data[currentIndex]))
-      ) {
+      while (currentIndex < data.length && (isAcquired(data[currentIndex]) || isRepeated(data[currentIndex]))) {
         currentIndex++;
       }
-
       if (currentIndex < data.length) {
         currentQA = data[currentIndex];
-        const questionText = "문제입니다: " + currentQA.question;
-        document.getElementById("question").innerText = questionText;
-        speak(questionText, () => {
+        const qText = "문제입니다: " + currentQA.question;
+        document.getElementById("question").innerText = qText;
+        speak(qText, () => {
           document.getElementById("notice").innerText = "20초 후에 정답이 나옵니다.";
           setTimeout(() => showAnswer(currentQA), 20000);
         });
@@ -181,93 +193,66 @@
     }
 
     function startAutoMode() {
-      if (!selectedCategory) {
-        alert("과목을 선택해주세요.");
-        return;
-      }
+      if (!selectedCategory) return alert("과목을 선택해주세요.");
       quizActive = true;
       isAutoMode = true;
       document.getElementById("manualBtn").style.display = "none";
       document.getElementById("autoBtn").style.display = "none";
       document.getElementById("stopBtn").style.display = "inline-block";
-      if (!autoIndexMap[selectedCategory]) {
-        autoIndexMap[selectedCategory] = 0;
-      }
+      if (!autoIndexMap[selectedCategory]) autoIndexMap[selectedCategory] = 0;
       loadNextAutoQA();
     }
 
     function loadNextAutoQA() {
       if (!quizActive) return;
       const all = allData.filter(q => q.subject === selectedCategory);
-      const autoList = all.filter(q => !isAcquired(q) && (isRepeated(q) || !isRepeated(q)));
+      const autoList = all.filter(q => !isAcquired(q));
       const len = autoList.length;
       if (len === 0) {
         document.getElementById("question").innerText = "출제할 문제가 없습니다.";
         return;
       }
-      let pointer = autoIndexMap[selectedCategory] % len;
-      currentQA = autoList[pointer];
-      autoIndexMap[selectedCategory] = (pointer + 1) % len;
+      let idx = autoIndexMap[selectedCategory] % len;
+      currentQA = autoList[idx];
+      autoIndexMap[selectedCategory] = (idx + 1) % len;
 
       document.getElementById("answer").style.display = "none";
       document.getElementById("answer").innerText = "";
       document.getElementById("notice").innerText = "";
       document.getElementById("buttons").style.display = "none";
 
-      const questionText = "문제입니다: " + currentQA.question;
-      document.getElementById("question").innerText = questionText;
-      speak(questionText, () => {
+      const qText = "문제입니다: " + currentQA.question;
+      document.getElementById("question").innerText = qText;
+      speak(qText, () => {
         document.getElementById("notice").innerText = "5초 후에 정답이 나옵니다.";
         setTimeout(() => {
           showAnswer(currentQA);
-          setTimeout(() => loadNextAutoQA(), 7000); // 정답 후 7초 뒤 다음 문제
+          setTimeout(() => loadNextAutoQA(), 5000);
         }, 5000);
       });
     }
 
-    function showAnswer(qa) {
-      const answerText = "정답입니다: " + qa.answer;
-      document.getElementById("answer").innerText = answerText;
+    function showAnswer(q) {
+      const aText = "정답입니다: " + q.answer;
+      document.getElementById("answer").innerText = aText;
       document.getElementById("answer").style.display = "block";
       document.getElementById("notice").innerText = "";
-      document.getElementById("buttons").style.display = isAutoMode ? "none" : "block";
-      speak(answerText);
+      if (!isAutoMode) document.getElementById("buttons").style.display = "block";
+      speak(aText);
     }
 
     function repeatQuestion() {
-      if (currentQA && !isRepeated(currentQA)) {
-        repeatList.push(currentQA);
-      }
+      if (currentQA && !isRepeated(currentQA)) repeatList.push(currentQA);
       saveProgress();
       updateStats();
-      if (!isAutoMode) {
-        currentIndex++;
-        loadNextManualQA();
-      }
+      if (!isAutoMode) { currentIndex++; loadNextManualQA(); }
     }
 
     function markAcquired() {
-      if (currentQA && !isAcquired(currentQA)) {
-        acquiredList.push(currentQA);
-      }
+      if (currentQA && !isAcquired(currentQA)) acquiredList.push(currentQA);
       saveProgress();
       updateStats();
-      if (!isAutoMode) {
-        currentIndex++;
-        loadNextManualQA();
-      }
-    }
-
-    function isAcquired(qa) {
-      return acquiredList.some(item =>
-        item.question === qa.question && item.subject === qa.subject
-      );
-    }
-
-    function isRepeated(qa) {
-      return repeatList.some(item =>
-        item.question === qa.question && item.subject === qa.subject
-      );
+      if (!isAutoMode) { currentIndex++; loadNextManualQA(); }
     }
 
     function saveProgress() {
