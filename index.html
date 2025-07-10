@@ -238,8 +238,15 @@ function saveProgress() {
   localStorage.setItem("lastIndex", currentIndex.toString());
 }
 window.onload = () => {
-  // 강제로 음성 리스트 로드
-  speechSynthesis.getVoices(); 
+  // 강제로 음성 리스트 로드 및 선택 활성화
+  const voiceSelect = document.getElementById("voiceSelect");
+  const categorySelect = document.getElementById("categorySelect");
+
+  speechSynthesis.getVoices();
+
+  if (voiceSelect.disabled) voiceSelect.disabled = false;
+  if (categorySelect.disabled) categorySelect.disabled = false;
+
   window.speechSynthesis.onvoiceschanged();
 };
 </script>
