@@ -47,7 +47,7 @@
     <button onclick="setMode('총계')">총계</button>
     <button onclick="setMode('반복')">반복</button>
     <button onclick="setMode('습득')">습득</button>
-    <button onclick="setMode('자동')">자동모드</button>
+    <button onclick="setMode('자동')">자동모드</button> <!-- ✅ 자동모드 버튼 추가 -->
   </div>
 
   <!-- 문제 및 정답 -->
@@ -70,7 +70,6 @@
 
     let subjectStats = {};  // {과목명: {repeat: [], learned: [], autoIndex: 0}}
 
-    // JSON 불러오기
     fetch("youth_quiz_data.json")
       .then(res => res.json())
       .then(data => {
@@ -120,10 +119,10 @@
           return;
         }
 
-        // 현재 auto index 위치 찾기
+        // 현재 위치
         let idx = stats.autoIndex % repeatIndices.length;
         currentIndex = repeatIndices[idx];
-        stats.autoIndex = (idx + 1) % repeatIndices.length;
+        stats.autoIndex = (stats.autoIndex + 1) % repeatIndices.length;
 
         document.getElementById("question").innerText = questions[currentIndex].q;
         document.getElementById("answer").innerText = "정답 보기";
