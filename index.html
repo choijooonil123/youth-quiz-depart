@@ -56,7 +56,7 @@ button {
 </style>
 </head>
 <body>
-<h1>청소년지도사 면접 퀴즈 2.0</h1>
+<h1>2청소년지도사 면접 퀴즈 2.0</h1>
 <h2>(제작:김천대학교 상담심리학과)</h2>
 
 <select id="categorySelect" onchange="selectCategory()">
@@ -93,7 +93,7 @@ let selectedCategory = "";
 let voices = [];
 let selectedVoice = null;
 
-window.speechSynthesis.onvoiceschanged = () => {
+function populateVoices() {
   voices = speechSynthesis.getVoices().filter(v => v.lang.startsWith("ko"));
   const voiceSelect = document.getElementById("voiceSelect");
   voiceSelect.innerHTML = "<option value=''>-- 음성을 선택하세요 --</option>";
@@ -105,10 +105,11 @@ window.speechSynthesis.onvoiceschanged = () => {
       voiceSelect.appendChild(option);
     }
   });
-  voiceSelect.onchange = () => {
-    const idx = voiceSelect.value;
-    selectedVoice = voices[idx] || null;
-  };
+}
+
+document.getElementById("voiceSelect").onchange = () => {
+  const idx = document.getElementById("voiceSelect").value;
+  selectedVoice = voices[idx] || null;
 };
 
 fetch("youth_quiz_data.json")
@@ -196,7 +197,6 @@ function loadNextQA() {
       const answerText = "정답입니다: " + qa.answer;
       document.getElementById("answer").innerText = answerText;
       document.getElementById("answer").style.display = "block";
-      document.getElementById("notice").innerText = "";
       speak(answerText);
     }, 20000);
   });
@@ -209,10 +209,6 @@ function repeatQuestion() {
     updateStats();
   }
   currentIndex++;
-  loadNextQA();
-}
-  currentIndex++;
-  updateStats();
   loadNextQA();
 }
 
@@ -237,17 +233,10 @@ function saveProgress() {
   localStorage.setItem("acquiredList", JSON.stringify(acquiredList));
   localStorage.setItem("lastIndex", currentIndex.toString());
 }
+
 window.onload = () => {
-  // 강제로 음성 리스트 로드 및 선택 활성화
-  const voiceSelect = document.getElementById("voiceSelect");
-  const categorySelect = document.getElementById("categorySelect");
-
-  speechSynthesis.getVoices();
-
-  if (voiceSelect.disabled) voiceSelect.disabled = false;
-  if (categorySelect.disabled) categorySelect.disabled = false;
-
-  window.speechSynthesis.onvoiceschanged();
+  populateVoices();
+  window.speechSynthesis.onvoiceschanged = populateVoices;
 };
 </script>
 </body>
