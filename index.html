@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>청소년지도사 면접 퀴즈</title>
   <style>
     body {
@@ -10,24 +10,10 @@
       background-color: #f0f0f0;
       text-align: center;
     }
-    h1 {
-      font-size: 2em;
-      margin-bottom: 0.2em;
-    }
-    h2 {
-      font-size: 0.9em;
-      margin-top: 0;
-      color: gray;
-    }
-    #question {
-      font-size: 1.5em;
-      margin: 1em 0;
-      color: red;
-    }
-    #answer, #notice {
-      font-size: 1.5em;
-      margin: 1em 0;
-    }
+    h1 { font-size: 2em; margin-bottom: 0.2em; }
+    h2 { font-size: 0.9em; margin-top: 0; color: gray; }
+    #question { font-size: 1.5em; margin: 1em 0; color: red; }
+    #answer, #notice { font-size: 1.5em; margin: 1em 0; }
     #answer { color: blue; }
     #notice { color: gray; }
     button {
@@ -56,6 +42,7 @@
   <h2>(제작:김천대학교 상담심리학과)</h2>
 
   <!-- 음성 선택 -->
+  <label for="voiceSelect">음성을 선택하세요: </label>
   <select id="voiceSelect"></select>
 
   <!-- 과목 선택 -->
@@ -73,16 +60,12 @@
   </div>
 
   <button id="manualBtn" onclick="startManualMode()">수동모드 시작</button>
-  <p style="font-size:0.85em; color:#666; margin-top:-0.5em;">반복/습득 문제 제외하고 출제됩니다.</p>
-
   <button id="autoBtn" onclick="startAutoMode()">자동모드 시작</button>
-  <p style="font-size:0.85em; color:#666; margin-top:-0.5em;">반복 문제 또는 새 문제만 순서대로 출제됩니다.</p>
-
   <button id="stopBtn" onclick="stopQuiz()" style="display:none;">종료</button>
 
   <p id="tip">
-    ※ 음성이 나오지 않으면 <strong>오른쪽 아래 점 세 개(⋮)</strong>를 눌러<br>
-    <strong>"다른 브라우저로 열기"</strong>를 선택하세요.<br>
+    ※ 음성이 나오지 않으면 <strong>오른쪽 아래 점 세 개(⋮)</strong>를 눌러<br />
+    <strong>“다른 브라우저로 열기”</strong>를 선택하세요.<br />
     (카카오톡 인앱 브라우저에서는 음성이 지원되지 않을 수 있습니다.)
   </p>
 
@@ -94,47 +77,35 @@
     let selectedCategory = "", selectedVoice = null;
     let autoIndexMap = {}, isAutoMode = false;
 
-    // 음성 목록 로드 및 선택
+    // 음성 선택 로직
     window.speechSynthesis.onvoiceschanged = function () {
       const voices = speechSynthesis.getVoices();
-      const select = document.getElementById("voiceSelect");
-      voices.filter(v => v.lang.startsWith("ko")).forEach(v => {
-        const opt = document.createElement("option");
-        opt.value = v.name;
-        opt.text = v.name;
-        select.appendChild(opt);
-      });
-      select.onchange = () => {
-        selectedVoice = voices.find(v => v.name === select.value);
+      const voiceSelect = document.getElementById("voiceSelect");
+      voices
+        .filter(v => v.lang.startsWith("ko"))
+        .forEach(voice => {
+          const option = document.createElement("option");
+          option.value = voice.name;
+          option.text = voice.name;
+          voiceSelect.appendChild(option);
+        });
+      voiceSelect.onchange = () => {
+        selectedVoice = voices.find(v => v.name === voiceSelect.value);
       };
-      if (select.options.length > 0) {
-        select.selectedIndex = 0;
-        selectedVoice = voices.find(v => v.name === select.value);
+      if (!selectedVoice && voiceSelect.options.length > 0) {
+        voiceSelect.selectedIndex = 0;
+        selectedVoice = voices.find(v => v.name === voiceSelect.value);
       }
     };
 
     function speak(text, callback) {
       speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.lang = 'ko-KR';
-      if (selectedVoice) utter.voice = selectedVoice;
-      if (callback) utter.onend = callback;
-      speechSynthesis.speak(utter);
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'ko-KR';
+      if (selectedVoice) utterance.voice = selectedVoice;
+      if (callback) utterance.onend = callback;
+      speechSynthesis.speak(utterance);
     }
-
-    fetch("youth_quiz_data.json")
-      .then(res => res.json())
-      .then(json => {
-        allData = json.filter(q => q.subject);
-        const select = document.getElementById("categorySelect");
-        const cats = [...new Set(allData.map(q => q.subject))];
-        cats.forEach(cat => {
-          const opt = document.createElement("option");
-          opt.value = cat;
-          opt.text = cat;
-          select.appendChild(opt);
-        });
-      });
 
     function selectCategory() {
       selectedCategory = document.getElementById("categorySelect").value;
@@ -196,10 +167,10 @@
       if (!selectedCategory) return alert("과목을 선택해주세요.");
       quizActive = true;
       isAutoMode = true;
+      if (!autoIndexMap[selectedCategory]) autoIndexMap[selectedCategory] = 0;
       document.getElementById("manualBtn").style.display = "none";
       document.getElementById("autoBtn").style.display = "none";
       document.getElementById("stopBtn").style.display = "inline-block";
-      if (!autoIndexMap[selectedCategory]) autoIndexMap[selectedCategory] = 0;
       loadNextAutoQA();
     }
 
@@ -212,24 +183,38 @@
         document.getElementById("question").innerText = "출제할 문제가 없습니다.";
         return;
       }
-      let idx = autoIndexMap[selectedCategory] % len;
-      currentQA = autoList[idx];
-      autoIndexMap[selectedCategory] = (idx + 1) % len;
+      let pointer = autoIndexMap[selectedCategory] % len;
+      currentQA = autoList[pointer];
+      autoIndexMap[selectedCategory] = (pointer + 1) % len;
 
       document.getElementById("answer").style.display = "none";
       document.getElementById("answer").innerText = "";
       document.getElementById("notice").innerText = "";
       document.getElementById("buttons").style.display = "none";
 
-      const qText = "문제입니다: " + currentQA.question;
-      document.getElementById("question").innerText = qText;
-      speak(qText, () => {
+      const questionText = "문제입니다: " + currentQA.question;
+      document.getElementById("question").innerText = questionText;
+
+      const questionUtterance = new SpeechSynthesisUtterance(questionText);
+      questionUtterance.lang = 'ko-KR';
+      if (selectedVoice) questionUtterance.voice = selectedVoice;
+
+      questionUtterance.onend = () => {
         document.getElementById("notice").innerText = "5초 후에 정답이 나옵니다.";
         setTimeout(() => {
           showAnswer(currentQA);
-          setTimeout(() => loadNextAutoQA(), 5000);
+          const answerUtterance = new SpeechSynthesisUtterance("정답입니다: " + currentQA.answer);
+          answerUtterance.lang = 'ko-KR';
+          if (selectedVoice) answerUtterance.voice = selectedVoice;
+          answerUtterance.onend = () => {
+            setTimeout(() => loadNextAutoQA(), 5000);
+          };
+          speechSynthesis.speak(answerUtterance);
         }, 5000);
-      });
+      };
+
+      speechSynthesis.cancel();
+      speechSynthesis.speak(questionUtterance);
     }
 
     function showAnswer(q) {
@@ -271,6 +256,21 @@
       document.getElementById("autoBtn").style.display = "inline-block";
       document.getElementById("stopBtn").style.display = "none";
     }
+
+    // 데이터 불러오기
+    fetch("youth_quiz_data.json")
+      .then(res => res.json())
+      .then(json => {
+        allData = json.filter(q => q.subject);
+        const cats = [...new Set(allData.map(q => q.subject))];
+        const select = document.getElementById("categorySelect");
+        cats.forEach(cat => {
+          const opt = document.createElement("option");
+          opt.value = cat;
+          opt.text = cat;
+          select.appendChild(opt);
+        });
+      });
   </script>
 </body>
 </html>
