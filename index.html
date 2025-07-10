@@ -12,7 +12,11 @@
     }
     h1 {
       font-size: 2em;
-      margin-bottom: 0.5em;
+      margin-bottom: 0.3em;
+    }
+    p {
+      font-size: 0.9em;
+      color: #444;
     }
     h2 {
       font-size: 1.2em;
@@ -33,11 +37,17 @@
       padding: 0.5em 1em;
       font-size: 1em;
     }
+    .note {
+      margin-top: 0.5em;
+      font-size: 0.85em;
+      color: #555;
+    }
   </style>
 </head>
 <body>
 
   <h1>청소년지도사 면접 퀴즈</h1>
+  <p class="note">※ 자동모드: 반복으로 지정된 문제만 순차 출제하며, 마지막 출제 이후부터 이어서 반복합니다.</p>
 
   <!-- 과목 선택 -->
   <select id="subjectSelect" onchange="selectSubject(this.value)"></select>
@@ -45,137 +55,4 @@
   <!-- 모드 선택 -->
   <div>
     <button onclick="setMode('총계')">총계</button>
-    <button onclick="setMode('반복')">반복</button>
-    <button onclick="setMode('습득')">습득</button>
-    <button onclick="setMode('자동')">자동모드</button> <!-- ✅ 자동모드 버튼 추가 -->
-  </div>
-
-  <!-- 문제 및 정답 -->
-  <h2 id="question">과목을 선택해주세요</h2>
-  <div id="answer" onclick="toggleAnswer()">정답 보기</div>
-
-  <!-- 반복/습득 지정 -->
-  <div>
-    <button onclick="markRepeat()">반복</button>
-    <button onclick="markLearned()">습득</button>
-  </div>
-
-  <!-- 스크립트 -->
-  <script>
-    let quizData = {};
-    let currentSubject = null;
-    let currentMode = "총계";
-    let currentIndex = 0;
-    let askedQuestions = [];
-
-    let subjectStats = {};  // {과목명: {repeat: [], learned: [], autoIndex: 0}}
-
-    fetch("youth_quiz_data.json")
-      .then(res => res.json())
-      .then(data => {
-        quizData = data;
-        loadSubjects();
-      });
-
-    function loadSubjects() {
-      const select = document.getElementById("subjectSelect");
-      select.innerHTML = "<option disabled selected>과목 선택</option>";
-      for (const subject in quizData) {
-        select.innerHTML += `<option value="${subject}">${subject}</option>`;
-        if (!subjectStats[subject]) {
-          subjectStats[subject] = {
-            repeat: [],
-            learned: [],
-            autoIndex: 0
-          };
-        }
-      }
-    }
-
-    function selectSubject(subject) {
-      currentSubject = subject;
-      currentIndex = 0;
-      askedQuestions = [];
-      showQuestion();
-    }
-
-    function setMode(mode) {
-      currentMode = mode;
-      askedQuestions = [];
-      showQuestion();
-    }
-
-    function showQuestion() {
-      if (!currentSubject || !quizData[currentSubject]) return;
-
-      const questions = quizData[currentSubject];
-      const stats = subjectStats[currentSubject];
-
-      if (currentMode === "자동") {
-        const repeatIndices = stats.repeat.slice().sort((a, b) => a - b);
-        if (repeatIndices.length === 0) {
-          document.getElementById("question").innerText = "반복으로 지정된 문제가 없습니다.";
-          document.getElementById("answer").innerText = "";
-          return;
-        }
-
-        // 현재 위치
-        let idx = stats.autoIndex % repeatIndices.length;
-        currentIndex = repeatIndices[idx];
-        stats.autoIndex = (stats.autoIndex + 1) % repeatIndices.length;
-
-        document.getElementById("question").innerText = questions[currentIndex].q;
-        document.getElementById("answer").innerText = "정답 보기";
-        return;
-      }
-
-      // 총계, 반복, 습득
-      let startIndex = 0;
-      if (currentMode === "반복" && stats.repeat.length > 0) {
-        startIndex = Math.max(...stats.repeat) + 1;
-      }
-      if (currentMode === "습득" && stats.learned.length > 0) {
-        startIndex = Math.max(...stats.learned) + 1;
-      }
-
-      const available = questions.slice(startIndex).filter((_, idx) => !askedQuestions.includes(startIndex + idx));
-
-      if (available.length === 0) {
-        document.getElementById("question").innerText = "출제할 문제가 없습니다.";
-        document.getElementById("answer").innerText = "";
-        return;
-      }
-
-      const nextQuestion = available[0];
-      currentIndex = questions.indexOf(nextQuestion);
-      askedQuestions.push(currentIndex);
-
-      document.getElementById("question").innerText = nextQuestion.q;
-      document.getElementById("answer").innerText = "정답 보기";
-    }
-
-    function toggleAnswer() {
-      const question = quizData[currentSubject][currentIndex];
-      const answerEl = document.getElementById("answer");
-      answerEl.innerText = (answerEl.innerText === "정답 보기") ? question.a : "정답 보기";
-    }
-
-    function markRepeat() {
-      const stats = subjectStats[currentSubject];
-      if (!stats.repeat.includes(currentIndex)) {
-        stats.repeat.push(currentIndex);
-      }
-      showQuestion();
-    }
-
-    function markLearned() {
-      const stats = subjectStats[currentSubject];
-      if (!stats.learned.includes(currentIndex)) {
-        stats.learned.push(currentIndex);
-      }
-      showQuestion();
-    }
-  </script>
-
-</body>
-</html>
+    <button onclick
