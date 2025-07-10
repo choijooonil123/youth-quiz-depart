@@ -97,12 +97,13 @@ function populateVoices() {
   voices = speechSynthesis.getVoices().filter(v => v.lang.startsWith("ko"));
   const voiceSelect = document.getElementById("voiceSelect");
   voiceSelect.innerHTML = "<option value=''>-- 음성을 선택하세요 --</option>";
-  ["상냥한 음성", "똑똑한 음성"].forEach((label, i) => {
-    if (voices[i]) {
-      const option = document.createElement("option");
-      option.value = i;
-      option.text = label;
-      voiceSelect.appendChild(option);
+  voices.forEach((voice, index) => {
+    const label = index === 0 ? "상냥한 음성" : index === 1 ? "똑똑한 음성" : voice.name;
+    const option = document.createElement("option");
+    option.value = index;
+    option.text = label;
+    voiceSelect.appendChild(option);
+  });
     }
   });
 }
@@ -207,6 +208,7 @@ function repeatQuestion() {
     repeatList.push({ question: currentQA.question, subject: currentQA.subject });
     saveProgress();
     updateStats();
+  }
   }
     saveProgress();
     updateStats();
