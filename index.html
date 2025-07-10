@@ -56,7 +56,7 @@ button {
 </style>
 </head>
 <body>
-<h1>11청소년지도사 면접 퀴즈 2.0</h1>
+<h1>청소년지도사 면접 퀴즈 2.0</h1>
 <h2>(제작:김천대학교 상담심리학과)</h2>
 
 <select id="categorySelect" onchange="selectCategory()">
@@ -104,8 +104,6 @@ function populateVoices() {
     option.text = label;
     voiceSelect.appendChild(option);
   });
-    }
-  });
 }
 
 document.getElementById("voiceSelect").onchange = () => {
@@ -119,6 +117,7 @@ fetch("youth_quiz_data.json")
     allData = json.filter(item => item.subject);
     const categories = [...new Set(allData.map(item => item.subject))].sort();
     const select = document.getElementById("categorySelect");
+    select.innerHTML = "<option value=''>-- 과목을 선택하세요 --</option>";
     categories.forEach(cat => {
       const option = document.createElement("option");
       option.value = cat;
@@ -180,7 +179,7 @@ function loadNextQA() {
   if (currentIndex >= data.length) currentIndex = 0;
   document.getElementById("answer").style.display = "none";
   document.getElementById("answer").innerText = "";
-  document.getElementById("notice").innerText = "";
+  document.getElementById("notice").innerText = "20초 후에 정답이 나옵니다.";
   document.getElementById("buttons").style.display = "block";
   let qa = data[currentIndex];
   while (isAcquired(qa)) {
@@ -206,14 +205,10 @@ function loadNextQA() {
 function repeatQuestion() {
   if (currentQA && !isRepeated(currentQA)) {
     repeatList.push({ question: currentQA.question, subject: currentQA.subject });
-    saveProgress();
-    updateStats();
-  }
-  }
-    saveProgress();
-    updateStats();
   }
   currentIndex++;
+  saveProgress();
+  updateStats();
   loadNextQA();
 }
 
