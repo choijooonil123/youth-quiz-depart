@@ -1,238 +1,278 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<title>청소년지도사 면접 퀴즈</title>
-<style>
-body {
-font-family: sans-serif;
-padding: 2em;
-background-color: #f0f0f0;
-text-align: center;
-}
-h1 {
-font-size: 2em;
-margin-bottom: 0.2em;
-}
-h2 {
-font-size: 0.9em;
-margin-top: 0;
-color: gray;
-}
-#question {
-font-size: 1.5em;
-margin: 1em 0;
-color: red;
-}
-#answer, #notice {
-font-size: 1.5em;
-margin: 1em 0;
-}
-#answer {
-color: blue;
-}
-#notice {
-color: gray;
-}
-button {
-font-size: 1em;
-padding: 1em;
-margin: 0.5em;
-}
-#tip {
-color: gray;
-font-size: 0.9em;
-margin-top: 2em;
-}
-#stats {
-margin-top: 1em;
-font-size: 1em;
-color: #333;
-}
-#categorySelect {
-margin: 1em;
-font-size: 1em;
-}
-</style>
+  <meta charset="UTF-8">
+  <title>청소년지도사 면접 퀴즈</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2em;
+      background-color: #f0f0f0;
+      text-align: center;
+    }
+    h1 {
+      font-size: 2em;
+      margin-bottom: 0.2em;
+    }
+    h2 {
+      font-size: 0.9em;
+      margin-top: 0;
+      color: gray;
+    }
+    #question {
+      font-size: 1.5em;
+      margin: 1em 0;
+      color: red;
+    }
+    #answer, #notice {
+      font-size: 1.5em;
+      margin: 1em 0;
+    }
+    #answer {
+      color: blue;
+    }
+    #notice {
+      color: gray;
+    }
+    button {
+      font-size: 1em;
+      padding: 1em;
+      margin: 0.5em;
+    }
+    #tip {
+      color: gray;
+      font-size: 0.9em;
+      margin-top: 2em;
+    }
+    #stats {
+      margin-top: 1em;
+      font-size: 1em;
+      color: #333;
+    }
+    #categorySelect {
+      margin: 1em;
+      font-size: 1em;
+    }
+  </style>
 </head>
 <body>
-<h1>청소년지도사 면접 퀴즈 2.0</h1>
-<h2>(제작:김천대학교 상담심리학과)</h2>
-<select id="categorySelect" onchange="selectCategory()">
-<option value="">-- 과목을 선택하세요 --</option>
-</select>
-<div id="stats">총계: 0 | 반복: 0 | 습득: 0</div>
-<div id="question">아래 시작 버튼을 눌러 퀴즈를 시작하세요.</div>
-<div id="notice"></div>
-<div id="answer" style="display:none;"></div>
-<div id="buttons" style="display:none;">
-<button onclick="repeatQuestion()">반복</button>
-<button onclick="markAcquired()">습득</button>
-</div>
-<button id="startBtn" onclick="startQuiz()">시작</button>
-<button id="stopBtn" onclick="stopQuiz()" style="display:none;">종료</button>
-<p id="tip">
-※ 음성이 나오지 않으면 <strong>오른쪽 아래 점 세 개(⋮)</strong>를 눌러<br>
-<strong>"다른 브라우저로 열기"</strong>를 선택하세요.<br>
-(카카오톡 인앱 브라우저에서는 음성이 지원되지 않을 수 있습니다.)
-</p>
+  <h1>청소년지도사 면접 퀴즈 2.0</h1>
+  <h2>(제작:김천대학교 상담심리학과)</h2>
+  <select id="categorySelect" onchange="selectCategory()">
+    <option value="">-- 과목을 선택하세요 --</option>
+  </select>
+  <div id="stats">총계: 0 | 반복: 0 | 습득: 0</div>
+  <div id="question">아래 시작 버튼을 눌러 퀴즈를 시작하세요.</div>
+  <div id="notice"></div>
+  <div id="answer" style="display:none;"></div>
+  <div id="buttons" style="display:none;">
+    <button onclick="repeatQuestion()">반복</button>
+    <button onclick="markAcquired()">습득</button>
+  </div>
 
-<script>
-let allData = [];
-let data = [];
-let quizActive = false;
-let currentIndex = 0;
-let repeatList = JSON.parse(localStorage.getItem("repeatList") || "[]");
-let acquiredList = JSON.parse(localStorage.getItem("acquiredList") || "[]");
-let currentQA = null;
-let selectedCategory = "";
+  <button id="manualBtn" onclick="startManualMode()">수동모드 시작</button>
+  <p style="font-size:0.85em; color:#666; margin-top:-0.5em;">반복/습득 문제 제외하고 출제됩니다.</p>
 
-fetch("youth_quiz_data.json")
-.then(response => response.json())
-.then(json => {
-allData = json.filter(item => item.subject);
-const categories = [...new Set(allData.map(item => item.subject))].sort();
-const select = document.getElementById("categorySelect");
-categories.forEach(cat => {
-const option = document.createElement("option");
-option.value = cat;
-option.text = cat;
-select.appendChild(option);
-});
-})
-.catch(err => {
-alert("문제 데이터를 불러오지 못했습니다.\n웹서버에서 열었는지 확인하세요.");
-console.error(err);
-});
+  <button id="autoBtn" onclick="startAutoMode()">자동모드 시작</button>
+  <p style="font-size:0.85em; color:#666; margin-top:-0.5em;">반복 문제 또는 새 문제만 순서대로 출제됩니다.</p>
 
-function selectCategory() {
-selectedCategory = document.getElementById("categorySelect").value;
-data = allData.filter(q => q.subject === selectedCategory);
-currentIndex = 0;
-updateStats();
-}
+  <button id="stopBtn" onclick="stopQuiz()" style="display:none;">종료</button>
 
-function speak(text, callback) {
-const utterance = new SpeechSynthesisUtterance(text);
-utterance.lang = 'ko-KR';
-if (callback) utterance.onend = callback;
-speechSynthesis.speak(utterance);
-}
+  <p id="tip">
+    ※ 음성이 나오지 않으면 <strong>오른쪽 아래 점 세 개(\u22ee)</strong>를 눌러<br>
+    <strong>"다른 브라우저로 열기"</strong>를 선택하세요.<br>
+    (카카오톡 인앱 브라우저에서는 음성이 지원되지 않을 수 있습니다.)
+  </p>
 
-function updateStats() {
-const total = data.length;
-const repeatCount = repeatList.filter(q => q.subject === selectedCategory).length;
-const acquiredCount = acquiredList.filter(q => q.subject === selectedCategory).length;
-document.getElementById("stats").innerText =
-`총계: ${total} | 반복: ${repeatCount} | 습득: ${acquiredCount}`;
-}
+  <script>
+    let allData = [];
+    let data = [];
+    let quizActive = false;
+    let currentIndex = 0;
+    let repeatList = JSON.parse(localStorage.getItem("repeatList") || "[]");
+    let acquiredList = JSON.parse(localStorage.getItem("acquiredList") || "[]");
+    let currentQA = null;
+    let selectedCategory = "";
+    let autoIndexMap = {}; // 과목별 자동 인덱스
 
-function startQuiz() {
-if (!selectedCategory) {
-alert("과목을 선택해주세요.");
-return;
-}
-quizActive = true;
-currentIndex = 0;
-document.getElementById("startBtn").style.display = "none";
-document.getElementById("stopBtn").style.display = "inline-block";
-loadNextQA();
-}
+    fetch("youth_quiz_data.json")
+      .then(response => response.json())
+      .then(json => {
+        allData = json.filter(item => item.subject);
+        const categories = [...new Set(allData.map(item => item.subject))].sort();
+        const select = document.getElementById("categorySelect");
+        categories.forEach(cat => {
+          const option = document.createElement("option");
+          option.value = cat;
+          option.text = cat;
+          select.appendChild(option);
+        });
+      })
+      .catch(err => {
+        alert("문제 데이터를 불러오지 못했습니다.\n웹서버에서 열었는지 확인하세요.");
+        console.error(err);
+      });
 
-function stopQuiz() {
-quizActive = false;
-document.getElementById("question").innerText = "퀴즈가 종료되었습니다.";
-document.getElementById("answer").style.display = "none";
-document.getElementById("notice").innerText = "";
-document.getElementById("startBtn").style.display = "inline-block";
-document.getElementById("stopBtn").style.display = "none";
-document.getElementById("buttons").style.display = "none";
-}
+    function selectCategory() {
+      selectedCategory = document.getElementById("categorySelect").value;
+      data = allData.filter(q => q.subject === selectedCategory);
+      currentIndex = 0;
+      updateStats();
+      document.getElementById("manualBtn").style.display = "inline-block";
+      document.getElementById("autoBtn").style.display = "inline-block";
+      document.getElementById("stopBtn").style.display = "none";
+    }
 
-function loadNextQA() {
-if (!quizActive) return;
+    function speak(text, callback) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'ko-KR';
+      if (callback) utterance.onend = callback;
+      speechSynthesis.speak(utterance);
+    }
 
-```
-document.getElementById("answer").style.display = "none";
-document.getElementById("answer").innerText = "";
-document.getElementById("notice").innerText = "";
-document.getElementById("buttons").style.display = "none";
+    function updateStats() {
+      const total = data.length;
+      const repeatCount = repeatList.filter(q => q.subject === selectedCategory).length;
+      const acquiredCount = acquiredList.filter(q => q.subject === selectedCategory).length;
+      document.getElementById("stats").innerText =
+        `총계: ${total} | 반복: ${repeatCount} | 습득: ${acquiredCount}`;
+    }
 
-while (
-  currentIndex < data.length &&
-  (isAcquired(data[currentIndex]) || isRepeated(data[currentIndex]))
-) {
-  currentIndex++;
-}
+    function startManualMode() {
+      if (!selectedCategory) {
+        alert("과목을 선택해주세요.");
+        return;
+      }
+      quizActive = true;
+      currentIndex = 0;
+      document.getElementById("manualBtn").style.display = "none";
+      document.getElementById("autoBtn").style.display = "none";
+      document.getElementById("stopBtn").style.display = "inline-block";
+      loadNextManualQA();
+    }
 
-if (currentIndex < data.length) {
-  currentQA = data[currentIndex];
-  const questionText = "문제입니다: " + currentQA.question;
-  document.getElementById("question").innerText = questionText;
-  speak(questionText, () => {
-    document.getElementById("notice").innerText = "20초 후에 정답이 나옵니다.";
-    setTimeout(() => showAnswer(currentQA), 20000);
-  });
-} else {
-  const subjectRepeats = repeatList.filter(q => q.subject === selectedCategory);
-  if (subjectRepeats.length > 0) {
-    data = allData.filter(q => q.subject === selectedCategory);
-    currentIndex = 0;
-    repeatList = repeatList.filter(q => q.subject !== selectedCategory);
-    updateStats();
-    loadNextQA();
-  } else {
-    stopQuiz();
-  }
-}
+    function loadNextManualQA() {
+      if (!quizActive) return;
+      document.getElementById("answer").style.display = "none";
+      document.getElementById("answer").innerText = "";
+      document.getElementById("notice").innerText = "";
+      document.getElementById("buttons").style.display = "none";
 
-```
+      while (
+        currentIndex < data.length &&
+        (isAcquired(data[currentIndex]) || isRepeated(data[currentIndex]))
+      ) {
+        currentIndex++;
+      }
 
-}
+      if (currentIndex < data.length) {
+        currentQA = data[currentIndex];
+        const questionText = "문제입니다: " + currentQA.question;
+        document.getElementById("question").innerText = questionText;
+        speak(questionText, () => {
+          document.getElementById("notice").innerText = "20초 후에 정답이 나옵니다.";
+          setTimeout(() => showAnswer(currentQA), 20000);
+        });
+      } else {
+        stopQuiz();
+      }
+    }
 
-function showAnswer(qa) {
-const answerText = "정답입니다: " + qa.answer;
-document.getElementById("answer").innerText = answerText;
-document.getElementById("answer").style.display = "block";
-document.getElementById("notice").innerText = "";
-document.getElementById("buttons").style.display = "block";
-speak(answerText);
-}
+    function startAutoMode() {
+      if (!selectedCategory) {
+        alert("과목을 선택해주세요.");
+        return;
+      }
+      quizActive = true;
+      document.getElementById("manualBtn").style.display = "none";
+      document.getElementById("autoBtn").style.display = "none";
+      document.getElementById("stopBtn").style.display = "inline-block";
+      if (!autoIndexMap[selectedCategory]) {
+        autoIndexMap[selectedCategory] = 0;
+      }
+      loadNextAutoQA();
+    }
 
-function repeatQuestion() {
-if (currentQA && !isRepeated(currentQA)) {
-repeatList.push(currentQA);
-}
-currentIndex++;
-saveProgress();
-updateStats();
-loadNextQA();
-}
+    function loadNextAutoQA() {
+      if (!quizActive) return;
+      const all = allData.filter(q => q.subject === selectedCategory);
+      const autoList = all.filter(q => !isAcquired(q) && (isRepeated(q) || !isRepeated(q)));
+      const len = autoList.length;
+      if (len === 0) {
+        document.getElementById("question").innerText = "출제할 문제가 없습니다.";
+        return;
+      }
+      let pointer = autoIndexMap[selectedCategory] % len;
+      currentQA = autoList[pointer];
+      autoIndexMap[selectedCategory] = (pointer + 1) % len;
 
-function markAcquired() {
-if (currentQA && !isAcquired(currentQA)) {
-acquiredList.push(currentQA);
-}
-currentIndex++;
-saveProgress();
-updateStats();
-loadNextQA();
-}
+      document.getElementById("answer").style.display = "none";
+      document.getElementById("answer").innerText = "";
+      document.getElementById("notice").innerText = "";
+      document.getElementById("buttons").style.display = "none";
 
-function isAcquired(qa) {
-return acquiredList.some(item =>
-item.question === qa.question && item.subject === qa.subject
-);
-}
+      const questionText = "문제입니다: " + currentQA.question;
+      document.getElementById("question").innerText = questionText;
+      speak(questionText, () => {
+        document.getElementById("notice").innerText = "15초 후에 정답이 나옵니다.";
+        setTimeout(() => showAnswer(currentQA), 15000);
+      });
+    }
 
-function isRepeated(qa) {
-return repeatList.some(item =>
-item.question === qa.question && item.subject === qa.subject
-);
-}
+    function showAnswer(qa) {
+      const answerText = "정답입니다: " + qa.answer;
+      document.getElementById("answer").innerText = answerText;
+      document.getElementById("answer").style.display = "block";
+      document.getElementById("notice").innerText = "";
+      document.getElementById("buttons").style.display = "block";
+      speak(answerText);
+    }
 
-function saveProgress() {
-localStorage.setItem("repeatList", JSON.stringify(repeatList));
-localStorage.setItem("acquiredList", JSON.stringify(acquiredList));
-}
-</script>
+    function repeatQuestion() {
+      if (currentQA && !isRepeated(currentQA)) {
+        repeatList.push(currentQA);
+      }
+      saveProgress();
+      updateStats();
+      quizActive ? (currentIndex++, loadNextManualQA()) : null;
+    }
+
+    function markAcquired() {
+      if (currentQA && !isAcquired(currentQA)) {
+        acquiredList.push(currentQA);
+      }
+      saveProgress();
+      updateStats();
+      quizActive ? (currentIndex++, loadNextManualQA()) : null;
+    }
+
+    function isAcquired(qa) {
+      return acquiredList.some(item =>
+        item.question === qa.question && item.subject === qa.subject
+      );
+    }
+
+    function isRepeated(qa) {
+      return repeatList.some(item =>
+        item.question === qa.question && item.subject === qa.subject
+      );
+    }
+
+    function saveProgress() {
+      localStorage.setItem("repeatList", JSON.stringify(repeatList));
+      localStorage.setItem("acquiredList", JSON.stringify(acquiredList));
+    }
+
+    function stopQuiz() {
+      quizActive = false;
+      document.getElementById("question").innerText = "퀴즈가 종료되었습니다.";
+      document.getElementById("answer").style.display = "none";
+      document.getElementById("notice").innerText = "";
+      document.getElementById("buttons").style.display = "none";
+      document.getElementById("manualBtn").style.display = "inline-block";
+      document.getElementById("autoBtn").style.display = "inline-block";
+      document.getElementById("stopBtn").style.display = "none";
+    }
+  </script>
+</body>
+</html>
