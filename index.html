@@ -59,17 +59,14 @@ button {
 <h1>청소년지도사 면접 퀴즈 2.0</h1>
 <h2>(제작:김천대학교 상담심리학과)</h2>
 
-<!-- 과목 선택 -->
 <select id="categorySelect" onchange="selectCategory()">
   <option value="">-- 과목을 선택하세요 --</option>
 </select>
-<!-- 음성 선택 -->
 <select id="voiceSelect">
   <option value="">-- 음성을 선택하세요 --</option>
 </select>
 
 <div id="stats">총계: 0 | 반복: 0 | 습득: 0</div>
-
 <div id="question">아래 시작 버튼을 눌러 퀴즈를 시작하세요.</div>
 <div id="notice"></div>
 <div id="answer" style="display:none;"></div>
@@ -77,22 +74,18 @@ button {
   <button onclick="repeatQuestion()">반복</button>
   <button onclick="markAcquired()">습득</button>
 </div>
-
-<!-- 수동 시작 버튼만 남김 -->
 <button id="manualBtn" onclick="startManualMode()">퀴즈 시작</button>
 <button id="stopBtn" onclick="stopQuiz()" style="display:none;">종료</button>
-
 <p id="tip">
 ※ 음성이 나오지 않으면 <strong>오른쪽 아래 점 세 개(⋮)</strong>를 눌러<br>
 <strong>"다른 브라우저로 열기"</strong>를 선택하세요.<br>
 (카카오톡 인앱 브라우저에서는 음성이 지원되지 않을 수 있습니다.)
 </p>
-
 <script>
 let allData = [];
 let data = [];
 let quizActive = false;
-let currentIndex = 0;
+let currentIndex = parseInt(localStorage.getItem("lastIndex") || "0");
 let repeatList = JSON.parse(localStorage.getItem("repeatList") || "[]");
 let acquiredList = JSON.parse(localStorage.getItem("acquiredList") || "[]");
 let currentQA = null;
@@ -139,7 +132,6 @@ fetch("youth_quiz_data.json")
 function selectCategory() {
   selectedCategory = document.getElementById("categorySelect").value;
   data = allData.filter(q => q.subject === selectedCategory);
-  currentIndex = 0;
   updateStats();
 }
 
@@ -165,7 +157,6 @@ function startManualMode() {
     return;
   }
   quizActive = true;
-  currentIndex = 0;
   document.getElementById("manualBtn").style.display = "none";
   document.getElementById("stopBtn").style.display = "inline-block";
   loadNextQA();
@@ -184,35 +175,27 @@ function stopQuiz() {
 
 function loadNextQA() {
   if (!quizActive) return;
-
-  if (currentIndex >= data.length) {
-    currentIndex = 0;
-  }
-
+  if (currentIndex >= data.length) currentIndex = 0;
   document.getElementById("answer").style.display = "none";
   document.getElementById("answer").innerText = "";
   document.getElementById("notice").innerText = "";
   document.getElementById("buttons").style.display = "block";
-
   let qa = data[currentIndex];
   while (isAcquired(qa)) {
     currentIndex++;
-    if (currentIndex >= data.length) {
-      currentIndex = 0;
-    }
+    if (currentIndex >= data.length) currentIndex = 0;
     qa = data[currentIndex];
   }
-
   currentQA = qa;
   const questionText = "문제입니다: " + qa.question;
   document.getElementById("question").innerText = questionText;
   speak(questionText, () => {
     if (!quizActive) return;
-    document.getElementById("notice").innerText = "20초 후에 정답이 나옵니다.";
     setTimeout(() => {
       const answerText = "정답입니다: " + qa.answer;
       document.getElementById("answer").innerText = answerText;
       document.getElementById("answer").style.display = "block";
+      document.getElementById("notice").innerText = "";
       speak(answerText);
     }, 20000);
   });
@@ -245,6 +228,7 @@ function isRepeated(qa) {
 function saveProgress() {
   localStorage.setItem("repeatList", JSON.stringify(repeatList));
   localStorage.setItem("acquiredList", JSON.stringify(acquiredList));
+  localStorage.setItem("lastIndex", currentIndex.toString());
 }
 </script>
 </body>
