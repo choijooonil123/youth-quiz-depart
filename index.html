@@ -80,6 +80,25 @@ let selectedCategory = "";
 let autoIndexMap = {};  // 자동 모드 포인터
 let isAutoMode = false;
 
+// 문제 데이터 로드 및 과목 선택 채우기
+fetch("youth_quiz_data.json")
+  .then(response => response.json())
+  .then(json => {
+    allData = json.filter(item => item.subject);
+    const categories = [...new Set(allData.map(item => item.subject))].sort();
+    const select = document.getElementById("categorySelect");
+    categories.forEach(cat => {
+      const option = document.createElement("option");
+      option.value = cat;
+      option.text = cat;
+      select.appendChild(option);
+    });
+  })
+  .catch(err => {
+    alert("문제 데이터를 불러오지 못했습니다. 웹서버에서 실행 중인지 확인하세요.");
+    console.error(err);
+  });
+
 // 음성 목록 로드 및 드롭다운 추가
 window.speechSynthesis.onvoiceschanged = function () {
   const voices = speechSynthesis.getVoices();
@@ -97,7 +116,7 @@ window.speechSynthesis.onvoiceschanged = function () {
     .forEach(voice => {
       const option = document.createElement("option");
       option.value = voice.name;
-      option.text = voice.name;
+      option.text = voice.name + (voice.lang ? ` (${voice.lang})` : "");
       voiceSelect.appendChild(option);
     });
 
@@ -111,7 +130,8 @@ window.speechSynthesis.onvoiceschanged = function () {
   voiceContainer.style.margin = "1em";
   voiceContainer.innerHTML = "";
   voiceContainer.appendChild(voiceSelect);
-  document.body.insertBefore(voiceContainer, document.getElementById("categorySelect"));
+  const categorySelect = document.getElementById("categorySelect");
+categorySelect.parentNode.insertBefore(voiceContainer, categorySelect.nextSibling);
 
   if (!selectedVoice && voiceSelect.options.length > 0) {
     voiceSelect.selectedIndex = 0;
@@ -305,6 +325,7 @@ function loadNextAutoQA() {
   speechSynthesis.speak(questionUtterance);
 }
 
+  
   </script>
 </body>
 </html>
