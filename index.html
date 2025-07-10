@@ -79,7 +79,7 @@
   <button id="stopBtn" onclick="stopQuiz()" style="display:none;">종료</button>
 
   <p id="tip">
-    ※ 음성이 나오지 않으면 <strong>오른쪽 아래 점 세 개(\u22ee)</strong>를 눌러<br>
+    ※ 음성이 나오지 않으면 <strong>오른쪽 아래 점 세 개(⋮)</strong>를 눌러<br>
     <strong>"다른 브라우저로 열기"</strong>를 선택하세요.<br>
     (카카오톡 인앱 브라우저에서는 음성이 지원되지 않을 수 있습니다.)
   </p>
@@ -94,6 +94,7 @@
     let currentQA = null;
     let selectedCategory = "";
     let autoIndexMap = {}; // 과목별 자동 인덱스
+    let isAutoMode = false;
 
     fetch("youth_quiz_data.json")
       .then(response => response.json())
@@ -144,6 +145,7 @@
         return;
       }
       quizActive = true;
+      isAutoMode = false;
       currentIndex = 0;
       document.getElementById("manualBtn").style.display = "none";
       document.getElementById("autoBtn").style.display = "none";
@@ -184,6 +186,7 @@
         return;
       }
       quizActive = true;
+      isAutoMode = true;
       document.getElementById("manualBtn").style.display = "none";
       document.getElementById("autoBtn").style.display = "none";
       document.getElementById("stopBtn").style.display = "inline-block";
@@ -214,8 +217,11 @@
       const questionText = "문제입니다: " + currentQA.question;
       document.getElementById("question").innerText = questionText;
       speak(questionText, () => {
-        document.getElementById("notice").innerText = "15초 후에 정답이 나옵니다.";
-        setTimeout(() => showAnswer(currentQA), 15000);
+        document.getElementById("notice").innerText = "5초 후에 정답이 나옵니다.";
+        setTimeout(() => {
+          showAnswer(currentQA);
+          setTimeout(() => loadNextAutoQA(), 7000); // 정답 후 7초 뒤 다음 문제
+        }, 5000);
       });
     }
 
@@ -224,7 +230,7 @@
       document.getElementById("answer").innerText = answerText;
       document.getElementById("answer").style.display = "block";
       document.getElementById("notice").innerText = "";
-      document.getElementById("buttons").style.display = "block";
+      document.getElementById("buttons").style.display = isAutoMode ? "none" : "block";
       speak(answerText);
     }
 
@@ -234,7 +240,10 @@
       }
       saveProgress();
       updateStats();
-      quizActive ? (currentIndex++, loadNextManualQA()) : null;
+      if (!isAutoMode) {
+        currentIndex++;
+        loadNextManualQA();
+      }
     }
 
     function markAcquired() {
@@ -243,7 +252,10 @@
       }
       saveProgress();
       updateStats();
-      quizActive ? (currentIndex++, loadNextManualQA()) : null;
+      if (!isAutoMode) {
+        currentIndex++;
+        loadNextManualQA();
+      }
     }
 
     function isAcquired(qa) {
@@ -265,6 +277,7 @@
 
     function stopQuiz() {
       quizActive = false;
+      isAutoMode = false;
       document.getElementById("question").innerText = "퀴즈가 종료되었습니다.";
       document.getElementById("answer").style.display = "none";
       document.getElementById("notice").innerText = "";
